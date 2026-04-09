@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planning APC Plomberie</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --col-w: 64px; --slot-h: 58px; --label-w: 142px;
+    --blue: #185FA5; --blue-dark: #0C447C; --blue-light: #E6F1FB;
+    --mauve: #7F77DD; --mauve-light: #EEEDFE; --mauve-dark: #534AB7;
+    --border: 0.5px solid #d0d0d0; --border-strong: 1px solid #b0b0b0;
+    --bg: #fff; --bg2: #f5f5f3; --text: #1a1a1a; --text2: #666; --text3: #999;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0ee; color: var(--text); }
+  #app { max-width: 1400px; margin: 0 auto; padding: 12px; }
+
+  .toolbar { display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--bg);border:var(--border-strong);border-radius:var(--radius-lg);margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .toolbar-brand { display:flex;align-items:center;gap:8px;flex:1; }
+  .toolbar-brand h1 { font-size:15px;font-weight:600; }
+  .sync-dot { width:8px;height:8px;border-radius:50%;background:#1D9E75;display:inline-block; }
+  .sync-dot.err { background:#E24B4A; }
+  .sync-dot.loading { background:#BA7517;animation:pulse 1s infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .tab-bar { display:flex;gap:2px;background:var(--bg2);border-radius:var(--radius);padding:3px; }
+  .tab-btn { background:none;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text2); }
+  .tab-btn.active { background:var(--bg);color:var(--blue);box-shadow:0 1px 2px rgba(0,0,0,.08); }
+  .nav-group { display:flex;align-items:center;gap:6px; }
+  .nav-btn { background:var(--bg);border:var(--border-strong);border-radius:var(--radius);padding:5px 10px;cursor:pointer;font-size:13px;color:var(--text); }
+  .nav-btn:hover { background:var(--bg2); }
+  .week-lbl { font-size:12px;color:var(--text2);min-width:170px;text-align:center;font-weight:500; }
+  .add-btn { background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:7px 13px;cursor:pointer;font-size:12px;font-weight:600; }
+  .add-btn:hover { background:var(--blue-dark); }
+
+  .grid-wrap { overflow-x:auto;border-radius:var(--radius-lg);box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .grid { display:grid;border:var(--border-strong);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg); }
+  .corner { background:var(--bg2);border-right:var(--border-strong);border-bottom:var(--border-strong);display:flex;align-items:center;padding:8px 10px;font-size:11px;font-weight:600;color:var(--text2);position:sticky;left:0;z-index:3; }
+
+  .dh { background:var(--bg2);border-bottom:var(--border-strong);border-right:var(--border);text-align:center;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px; }
+  .dh.today { background:var(--blue-light); }
+  .dh.we { opacity:.4; }
+  .dh.ferie { background:var(--mauve-light); }
+  .dh .dn { font-size:10px;font-weight:500;color:var(--text2); }
+  .dh .dd { font-size:13px;font-weight:600;color:var(--text2); }
+  .dh.today .dd { color:var(--blue); }
+  .dh.ferie .dn,.dh.ferie .dd { color:var(--mauve-dark); }
+  .dh .ferie-name { font-size:8px;color:var(--mauve-dark);font-weight:600;line-height:1;max-width:58px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+  .row-lbl { background:var(--bg2);border-right:var(--border-strong);border-bottom:var(--border);display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:600;color:var(--text);position:sticky;left:0;z-index:2;min-height:calc(var(--slot-h)*4);line-height:1.3; }
+
+  /* Colonne jour : grille de 4 slots empilés, chacun indépendant */
+  .dcg { display:grid;grid-template-rows:repeat(4,var(--slot-h));border-right:var(--border);border-bottom:var(--border);position:relative; }
+  .dcg.we { background:repeating-linear-gradient(45deg,transparent,transparent 5px,rgba(0,0,0,.02) 5px,rgba(0,0,0,.02) 10px); }
+  .dcg.ferie { background:repeating-linear-gradient(45deg,var(--mauve-light),var(--mauve-light) 5px,#e8e6fc 5px,#e8e6fc 10px); }
+
+  /* Chaque slot est toujours cliquable et visible */
+  .slot { border-bottom:var(--border);padding:2px 3px;position:relative;min-height:var(--slot-h);cursor:pointer; }
+  .slot:last-child { border-bottom:none; }
+  .slot.dov { outline:2px solid var(--blue);outline-offset:-2px;background:var(--blue-light) !important; }
+  .slbl { font-size:9px;color:var(--text3);font-weight:600;position:absolute;top:2px;left:3px;pointer-events:none;line-height:1; }
+  .dcg.ferie .slbl { color:var(--mauve); }
+
+  /* Chantier créneau normal */
+  .ch { border-radius:4px;padding:2px 5px;font-size:10px;line-height:1.3;cursor:grab;user-select:none;word-break:break-word;margin-top:14px;position:relative;border-left:3px solid rgba(0,0,0,0.25); }
+  .ch:active { cursor:grabbing;opacity:.5; }
+  .ch-name { font-weight:700;display:block;font-size:10px; }
+  .ch-sub { display:block;font-size:9px;opacity:.85;margin-top:1px; }
+  .ch-status { display:block;font-size:8px;font-weight:700;opacity:.9;margin-top:2px;text-transform:uppercase;letter-spacing:.03em; }
+  .ch-del { position:absolute;top:2px;right:3px;font-size:10px;cursor:pointer;opacity:0;background:rgba(0,0,0,.15);border:none;color:inherit;padding:0 3px;line-height:1.4;border-radius:3px; }
+  .ch:hover .ch-del,.ch-span:hover .ch-del { opacity:1; }
+  .ch-del:hover { background:rgba(0,0,0,.3) !important; }
+
+  /*
+    Chantier "journée / partielle" :
+    Positionné en absolu DANS le slot du premier créneau coché,
+    avec une hauteur qui s'étend sur N slots consécutifs cochés.
+    Les slots non cochés sont libres au-dessus/en-dessous et restent cliquables.
+    z-index:5 pour passer au-dessus des slots voisins.
+  */
+  .ch-span {
+    position:absolute;
+    left:3px; right:3px;
+    border-radius:6px;
+    padding:5px 7px;
+    font-size:10px; line-height:1.35;
+    cursor:grab; user-select:none; word-break:break-word;
+    border-left:4px solid rgba(0,0,0,.2);
+    z-index:5;
+    display:flex; flex-direction:column; justify-content:center;
+    box-shadow:0 1px 4px rgba(0,0,0,.15);
+    overflow:hidden;
+    pointer-events:auto;
+  }
+  .ch-span:active { cursor:grabbing;opacity:.5; }
+  .ch-span .ch-name { font-weight:700;font-size:11px; }
+  .ch-span .ch-badge { display:inline-block;margin-top:3px;background:rgba(255,255,255,.25);border-radius:3px;font-size:9px;padding:1px 5px;font-weight:600; }
+  .ch-span .ch-del { position:absolute;top:4px;right:5px; }
+
+  .status-legend { display:flex;gap:8px;flex-wrap:wrap;font-size:10px;color:var(--text2);margin-bottom:8px;align-items:center;padding:6px 10px;background:var(--bg);border:var(--border-strong);border-radius:var(--radius);box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .leg-item { display:flex;align-items:center;gap:4px; }
+  .leg-dot { width:11px;height:11px;border-radius:3px;flex-shrink:0; }
+
+  .ctx-menu { position:fixed;background:var(--bg);border:var(--border-strong);border-radius:var(--radius);box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:200;min-width:160px;padding:4px 0;font-size:12px; }
+  .ctx-item { padding:7px 14px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:8px; }
+  .ctx-item:hover { background:var(--bg2); }
+  .ctx-item.disabled { color:var(--text3);cursor:default; }
+  .ctx-item.disabled:hover { background:none; }
+  .ctx-sep { border:none;border-top:var(--border);margin:3px 0; }
+
+  .modal-bg { position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100; }
+  .modal { background:var(--bg);border-radius:var(--radius-lg);padding:20px 22px;width:390px;max-height:92vh;overflow-y:auto;border:var(--border-strong);box-shadow:0 8px 32px rgba(0,0,0,.15); }
+  .modal h3 { font-size:14px;font-weight:600;margin-bottom:14px; }
+  .fld { margin-bottom:11px; }
+  .fld label { font-size:11px;color:var(--text2);display:block;margin-bottom:3px;font-weight:500; }
+  .fld input,.fld select,.fld textarea { width:100%;font-size:12px;padding:7px 10px;border:var(--border-strong);border-radius:var(--radius);background:var(--bg);color:var(--text);font-family:inherit; }
+  .fld input:focus,.fld select:focus,.fld textarea:focus { outline:2px solid var(--blue); }
+  .fld textarea { min-height:50px;resize:vertical; }
+
+  .ac-wrap { position:relative; }
+  .ac-list { position:absolute;top:100%;left:0;right:0;background:var(--bg);border:var(--border-strong);border-radius:0 0 var(--radius) var(--radius);z-index:50;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1); }
+  .ac-item { padding:6px 10px;cursor:pointer;font-size:12px; }
+  .ac-item:hover,.ac-item.active { background:var(--blue-light);color:var(--blue); }
+  .ac-item em { font-style:normal;font-weight:700;color:var(--blue); }
+
+  .status-grid { display:grid;grid-template-columns:1fr 1fr;gap:6px; }
+  .status-opt { display:flex;align-items:center;gap:7px;padding:7px 10px;border:var(--border-strong);border-radius:var(--radius);cursor:pointer;font-size:11px;font-weight:500;transition:all .1s; }
+  .status-opt:hover { border-color:#888; }
+  .status-opt.sel { border-width:2px; }
+  .status-dot-lg { width:13px;height:13px;border-radius:3px;flex-shrink:0; }
+
+  .toggle-row { display:flex;align-items:center;gap:10px;margin-bottom:8px;background:var(--bg2);border-radius:var(--radius);padding:8px 10px; }
+  .toggle-label { font-size:12px;font-weight:500;color:var(--text);flex:1; }
+  .toggle-hint { font-size:10px;color:var(--text3); }
+  .toggle { position:relative;width:38px;height:22px;flex-shrink:0; }
+  .toggle input { opacity:0;width:0;height:0; }
+  .toggle-slider { position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:.2s; }
+  .toggle-slider:before { content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s; }
+  .toggle input:checked + .toggle-slider { background:var(--blue); }
+  .toggle input:checked + .toggle-slider:before { transform:translateX(16px); }
+
+  .slots-picker label { font-size:11px;color:var(--text2);display:block;margin-bottom:6px;font-weight:500; }
+  .slots-checks { display:flex;flex-direction:column;gap:5px; }
+  .slot-check { display:flex;align-items:center;gap:8px;padding:6px 10px;border:var(--border-strong);border-radius:var(--radius);cursor:pointer;transition:background .1s; }
+  .slot-check:hover { background:var(--bg2); }
+  .slot-check input[type=checkbox] { width:15px;height:15px;cursor:pointer;accent-color:var(--blue); }
+  .slot-check-lbl { font-size:11px;font-weight:500;flex:1; }
+  .slot-check-time { font-size:10px;color:var(--text3); }
+  .slot-check.checked { background:var(--blue-light);border-color:#85B7EB; }
+  .slot-check.checked .slot-check-lbl { color:var(--blue); }
+  .slots-summary { font-size:11px;color:var(--text2);margin-top:5px;padding:4px 8px;background:var(--bg2);border-radius:5px; }
+  .slots-summary strong { color:var(--text); }
+  .slot-section-normal.hidden,.slot-section-full.hidden { display:none; }
+
+  .mactions { display:flex;gap:8px;justify-content:flex-end;margin-top:16px; }
+  .btn-c { background:none;border:var(--border-strong);border-radius:var(--radius);padding:7px 14px;cursor:pointer;font-size:12px;color:var(--text);font-family:inherit; }
+  .btn-c:hover { background:var(--bg2); }
+  .btn-s { background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit; }
+  .btn-s:hover { background:var(--blue-dark); }
+
+  .view-section { background:var(--bg);border:var(--border-strong);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .section-title { font-size:13px;font-weight:600;margin-bottom:10px; }
+  .affaire-card { background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;border:var(--border-strong); }
+  .affaire-card h4 { font-size:12px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px; }
+  .aff-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+  .affaire-stat { font-size:11px;color:var(--text2);line-height:1.8; }
+  .affaire-stat strong { color:var(--text); }
+  .total-badge { background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px; }
+  .res-list { margin-bottom:12px; }
+  .res-row { display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:var(--border); }
+  .res-row:last-child { border-bottom:none; }
+  .res-name { flex:1;font-size:12px;font-weight:500; }
+  .res-del { background:none;border:var(--border-strong);border-radius:var(--radius);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text2);font-family:inherit; }
+  .res-del:hover { background:#FCEBEB;color:#A32D2D;border-color:#F09595; }
+  .inline-form { display:flex;gap:6px;align-items:center; }
+  .inline-form input { flex:1;font-size:12px;padding:6px 9px;border:var(--border-strong);border-radius:var(--radius);background:var(--bg);color:var(--text);font-family:inherit; }
+  .inline-form input:focus { outline:2px solid var(--blue); }
+  .inline-form button { background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;white-space:nowrap; }
+  .inline-form button:hover { background:var(--blue-dark); }
+  .two-col { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+  @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+  .empty-state { font-size:12px;color:var(--text3);padding:8px 0;font-style:italic; }
+  .cpick { display:flex;gap:6px;flex-wrap:wrap; }
+  .copt { width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .1s; }
+  .copt:hover { transform:scale(1.15); }
+  .copt.sel { border-color:var(--text);transform:scale(1.1); }
+  #loading { text-align:center;padding:40px;font-size:13px;color:var(--text2); }
+  .paste-hint { position:fixed;bottom:16px;right:16px;background:#1a1a1a;color:#fff;font-size:11px;padding:8px 14px;border-radius:var(--radius);opacity:0;transition:opacity .3s;pointer-events:none;z-index:300; }
+  .paste-hint.show { opacity:1; }
+</style>
+</head>
+<body>
+<div id="app"><div id="loading">Connexion à Firebase...</div></div>
+<div class="paste-hint" id="paste-hint"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBGE_SJBR7K04g1s8SO6MFsFvu13B34RYw",
+  authDomain: "apc-planning.firebaseapp.com",
+  databaseURL: "https://apc-planning-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "apc-planning",
+  storageBucket: "apc-planning.firebasestorage.app",
+  messagingSenderId: "319467196433",
+  appId: "1:319467196433:web:4562f95557aea6eae7a1b0"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+const dbRef = ref(db, 'planning');
+
+/* ── JOURS FÉRIÉS ── */
+function easterSunday(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(y,month-1,day);
+}
+function getFeries(y){
+  const E=easterSunday(y), add=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;}, fmt=d=>d.toISOString().slice(0,10);
+  return {
+    [fmt(new Date(y,0,1))]:"Jour de l'An",
+    [fmt(add(E,1))]:"Lundi de Pâques",
+    [fmt(new Date(y,4,1))]:"Fête du Travail",
+    [fmt(new Date(y,4,8))]:"Victoire 1945",
+    [fmt(add(E,39))]:"Ascension",
+    [fmt(add(E,50))]:"Lundi de Pentecôte",
+    [fmt(new Date(y,6,14))]:"Fête Nationale",
+    [fmt(new Date(y,7,15))]:"Assomption",
+    [fmt(new Date(y,10,1))]:"Toussaint",
+    [fmt(new Date(y,10,11))]:"Armistice",
+    [fmt(new Date(y,11,25))]:"Noël",
+  };
+}
+const feriesCache={};
+function getFerie(ds){ const y=parseInt(ds.slice(0,4)); if(!feriesCache[y]) feriesCache[y]=getFeries(y); return feriesCache[y][ds]||null; }
+
+/* ── STATUTS ── */
+const STATUTS=[
+  {id:'confirmed',  label:'RV confirmé',         bg:'#1B3A6B',tx:'#fff'},
+  {id:'unconfirmed',label:'RV non confirmé',      bg:'#1D9E75',tx:'#fff'},
+  {id:'toconfirm',  label:'RV à confirmer',       bg:'#888780',tx:'#fff'},
+  {id:'empty',      label:'Vide à remplir',       bg:'#E24B4A',tx:'#fff'},
+  {id:'holiday',    label:'Congés',               bg:'#EAC100',tx:'#7a5c00'},
+  {id:'unavailable',label:'Autre indisponibilité',bg:'#6B3A1B',tx:'#fff'},
+];
+function getStatut(id){ return STATUTS.find(s=>s.id===id)||STATUTS[0]; }
+
+const SLOT_LABELS=['8h-10h','10h-12h','13h30-15h30','15h30-17h30'];
+const SLOT_NAMES=['Matin début','Matin fin','Après-midi début','Après-midi fin'];
+const SLOT_BG=['#E1F5EE','#E6F1FB','#FAEEDA','#FBEAF0'];
+const DAY_S=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const AFFCOLORS=['#378ADD','#1D9E75','#D85A30','#D4537E','#7F77DD','#BA7517','#888780','#E24B4A','#0F6E56','#993556','#185FA5','#639922'];
+
+let state={chantiers:{},resources:{r1:'David AMELINE',r2:'Xavier COQUET',r3:'Kevin LAVAL',r4:'SS traitant'},affaires:{}};
+let startDate=getMonday(new Date());
+let editId=null,affSelColor=0,dragId=null,currentTab='plan',appReady=false;
+let selStatut='confirmed',selSlots=[0,1,2,3],clipboard=null;
+
+function getMonday(d){const c=new Date(d),dy=c.getDay();c.setDate(c.getDate()-(dy===0?6:dy-1));c.setHours(0,0,0,0);return c;}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function fmtD(d){return d.toISOString().slice(0,10);}
+function uid(){return '_'+Math.random().toString(36).slice(2)+Date.now().toString(36);}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function getDays(){const a=[];for(let i=0;i<14;i++)a.push(addDays(startDate,i));return a;}
+function getWLabel(){const d=getDays(),o={day:'numeric',month:'long'};return d[0].toLocaleDateString('fr-FR',o)+' – '+d[13].toLocaleDateString('fr-FR',o);}
+function chantierHours(c){if(!c.fullday)return 2;const s=c.slots&&c.slots.length?c.slots:[0,1,2,3];return s.length*2;}
+
+async function saveState(){setSynced('loading');try{await set(dbRef,state);setSynced('ok');}catch(e){setSynced('err');}}
+function setSynced(s){const dot=document.getElementById('sync-dot');if(!dot)return;dot.className='sync-dot'+(s==='err'?' err':s==='loading'?' loading':'');}
+
+/* ── AUTOCOMPLETE ── */
+function getClientList(){const s=new Set();Object.values(state.chantiers).forEach(c=>{if(c.client)s.add(c.client.trim());});return[...s].sort((a,b)=>a.localeCompare(b,'fr'));}
+function getAffaireList(){return Object.values(state.affaires).map(a=>a.name).sort((a,b)=>a.localeCompare(b,'fr'));}
+function setupAutocomplete(inputId,getList){
+  const inp=document.getElementById(inputId);if(!inp)return;
+  // Supprimer les anciens listeners pour éviter les doublons
+  const savedVal=inp.value;
+  const newInp=inp.cloneNode(true);inp.parentNode.replaceChild(newInp,inp);
+  const el=document.getElementById(inputId);
+  el.value=savedVal;
+  let acIdx=-1;const wrap=el.closest('.ac-wrap');
+  function showList(q){removeList();if(!q)return;const matches=getList().filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v.toLowerCase()!==q.toLowerCase());if(!matches.length)return;const div=document.createElement('div');div.className='ac-list';div.id='ac-list-'+inputId;matches.slice(0,8).forEach(v=>{const item=document.createElement('div');item.className='ac-item';const qi=v.toLowerCase().indexOf(q.toLowerCase());item.innerHTML=esc(v.slice(0,qi))+'<em>'+esc(v.slice(qi,qi+q.length))+'</em>'+esc(v.slice(qi+q.length));item.onmousedown=e=>{e.preventDefault();el.value=v;removeList();};div.appendChild(item);});wrap.appendChild(div);acIdx=-1;}
+  function removeList(){const l=document.getElementById('ac-list-'+inputId);if(l)l.remove();acIdx=-1;}
+  el.addEventListener('input',()=>showList(el.value));
+  el.addEventListener('keydown',e=>{const list=document.getElementById('ac-list-'+inputId);if(!list)return;const items=list.querySelectorAll('.ac-item');if(e.key==='ArrowDown'){e.preventDefault();acIdx=Math.min(acIdx+1,items.length-1);items.forEach((it,i)=>it.classList.toggle('active',i===acIdx));}else if(e.key==='ArrowUp'){e.preventDefault();acIdx=Math.max(acIdx-1,0);items.forEach((it,i)=>it.classList.toggle('active',i===acIdx));}else if(e.key==='Enter'&&acIdx>=0){e.preventDefault();el.value=items[acIdx].textContent;removeList();}else if(e.key==='Escape'){removeList();}});
+  el.addEventListener('blur',()=>setTimeout(removeList,150));
+}
+
+/* ── CONTEXT MENU ── */
+function closeCtx(){const m=document.getElementById('ctx-menu');if(m)m.remove();}
+function showCtxMenu(e,target){
+  e.preventDefault();closeCtx();
+  const hasCh=!!target.chId,canPaste=!!clipboard;
+  const menu=document.createElement('div');menu.className='ctx-menu';menu.id='ctx-menu';
+  menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+  menu.style.top=Math.min(e.clientY,window.innerHeight-160)+'px';
+  const items=[{icon:'✎',label:'Nouveau chantier ici',fn:()=>{openModal(null,target.tech,target.date,target.slot);closeCtx();}}];
+  if(hasCh){items.push({icon:'⎘',label:'Copier ce créneau',fn:()=>{copyChantier(target.chId);closeCtx();}});items.push({sep:true});items.push({icon:'✕',label:'Supprimer',fn:()=>{if(confirm('Supprimer ?')){delete state.chantiers[target.chId];saveState();renderPlan();}closeCtx();},danger:true});}
+  items.push({sep:true});
+  items.push({icon:'⎗',label:canPaste?'Coller ici':'Coller (rien à coller)',fn:canPaste?()=>{pasteChantier(target);closeCtx();}:null,disabled:!canPaste});
+  items.forEach(it=>{if(it.sep){const hr=document.createElement('hr');hr.className='ctx-sep';menu.appendChild(hr);return;}const div=document.createElement('div');div.className='ctx-item'+(it.disabled?' disabled':'');div.innerHTML=`<span style="font-size:13px;width:16px">${it.icon}</span>${esc(it.label)}`;if(it.danger)div.style.color='#A32D2D';if(it.fn&&!it.disabled)div.onclick=it.fn;menu.appendChild(div);});
+  document.body.appendChild(menu);
+  document.addEventListener('click',closeCtx,{once:true});
+}
+function copyChantier(chId){const c=state.chantiers[chId];if(!c)return;clipboard={client:c.client,desc:c.desc,affId:c.affId,statut:c.statut,fullday:c.fullday,slots:c.slots};showHint(`"${c.client}" copié`);}
+function pasteChantier(target){if(!clipboard)return;const id=uid();state.chantiers[id]={id,client:clipboard.client,desc:clipboard.desc||'',affId:clipboard.affId||null,statut:clipboard.statut||'confirmed',fullday:clipboard.fullday||false,slots:clipboard.slots||[0,1,2,3],tech:target.tech,date:target.date,slot:target.slot||0};saveState();renderPlan();showHint(`"${clipboard.client}" collé`);}
+function showHint(msg){const h=document.getElementById('paste-hint');h.textContent=msg;h.classList.add('show');setTimeout(()=>h.classList.remove('show'),2500);}
+
+/* ── INIT APP ── */
+function initApp(){
+  document.getElementById('app').innerHTML=`
+    <div class="toolbar">
+      <div class="toolbar-brand"><span class="sync-dot" id="sync-dot"></span><h1>Planning APC Plomberie</h1></div>
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-plan" onclick="switchTab('plan')">Planning</button>
+        <button class="tab-btn" id="tab-aff" onclick="switchTab('aff')">Affaires</button>
+        <button class="tab-btn" id="tab-res" onclick="switchTab('res')">Ressources</button>
+      </div>
+      <div class="nav-group">
+        <button class="nav-btn" onclick="navigate(-1)">&#8249;</button>
+        <span class="week-lbl" id="wlbl"></span>
+        <button class="nav-btn" onclick="navigate(1)">&#8250;</button>
+        <button class="nav-btn" onclick="goToday()">Aujourd'hui</button>
+      </div>
+      <button class="add-btn" onclick="openModal()">+ Chantier</button>
+    </div>
+    <div id="view-plan">
+      <div class="status-legend" id="status-legend"></div>
+      <div class="grid-wrap"><div class="grid" id="grid"></div></div>
+    </div>
+    <div id="view-aff" style="display:none">
+      <div class="view-section" style="margin-bottom:12px"><p class="section-title">Suivi du temps par affaire</p><div id="aff-list"></div></div>
+      <div class="view-section"><p class="section-title">Clients ponctuels <span style="font-size:11px;font-weight:400;color:var(--text3)">(sans affaire rattachée)</span></p><div id="ponctuel-list"></div></div>
+    </div>
+    <div id="view-res" style="display:none">
+      <div class="two-col">
+        <div class="view-section"><p class="section-title">Salariés</p><div class="res-list" id="res-list"></div><div class="inline-form"><input id="new-res" type="text" placeholder="Prénom Nom"><button onclick="addResource()">Ajouter</button></div></div>
+        <div class="view-section"><p class="section-title">Affaires</p><div class="res-list" id="aff-ref-list"></div><div class="inline-form" style="margin-bottom:8px"><input id="new-aff" type="text" placeholder="Nom de l'affaire"><button onclick="addAffaire()">Ajouter</button></div><div class="cpick" id="aff-cpick" style="margin-top:6px"></div></div>
+      </div>
+    </div>
+    <div id="modal-bg" class="modal-bg" style="display:none">
+      <div class="modal">
+        <h3 id="modal-title">Nouveau chantier</h3>
+        <div class="fld"><label>Client / libellé</label><div class="ac-wrap"><input id="f-client" type="text" placeholder="Nom du client" autocomplete="off"></div></div>
+        <div class="fld"><label>Affaire</label><div class="ac-wrap"><input id="f-aff-input" type="text" placeholder="Nom de l'affaire (optionnel)" autocomplete="off"></div></div>
+        <div class="fld"><label>Description / adresse</label><textarea id="f-desc" placeholder="Adresse, type d'intervention..."></textarea></div>
+        <div class="fld"><label>Statut</label><div class="status-grid" id="statut-grid"></div></div>
+        <div class="fld"><label>Technicien</label><select id="f-tech"></select></div>
+        <div class="fld"><label>Date</label><input id="f-date" type="date"></div>
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="f-fullday" onchange="window._toggleFullday()"><span class="toggle-slider"></span></label>
+          <span class="toggle-label">Journée / demi-journée</span>
+          <span class="toggle-hint" id="toggle-hint">créneau unique</span>
+        </div>
+        <div class="slot-section-normal" id="slot-section-normal">
+          <div class="fld"><label>Créneau</label><select id="f-slot">
+            <option value="0">Matin début — 8h00 à 10h00</option>
+            <option value="1">Matin fin — 10h00 à 12h00</option>
+            <option value="2">Après-midi début — 13h30 à 15h30</option>
+            <option value="3">Après-midi fin — 15h30 à 17h30</option>
+          </select></div>
+        </div>
+        <div class="slot-section-full hidden" id="slot-section-full">
+          <div class="slots-picker"><label>Créneaux inclus</label><div class="slots-checks" id="slots-checks"></div><div class="slots-summary" id="slots-summary"></div></div>
+        </div>
+        <div class="mactions"><button class="btn-c" onclick="closeModal()">Annuler</button><button class="btn-s" onclick="saveChantier()">Enregistrer</button></div>
+      </div>
+    </div>`;
+
+  appReady=true;
+  document.getElementById('wlbl').textContent=getWLabel();
+  renderStatusLegend();
+  renderPlan();
+  document.getElementById('modal-bg').addEventListener('click',e=>{if(e.target.id==='modal-bg')closeModal();});
+  document.addEventListener('click',closeCtx);
+  document.addEventListener('dragend',()=>{document.querySelectorAll('.ch,.ch-span').forEach(el=>el.style.opacity='1');dragId=null;});
+  renderAffCpick();
+
+}
+
+function renderStatusLegend(){
+  const el=document.getElementById('status-legend');if(!el)return;
+  el.innerHTML='<span style="font-size:10px;font-weight:600;color:var(--text2)">Statuts :</span>'+
+    STATUTS.map(s=>`<span class="leg-item"><span class="leg-dot" style="background:${s.bg}"></span>${s.label}</span>`).join('')+
+    `<span class="leg-item"><span class="leg-dot" style="background:#7F77DD;border-radius:50%"></span>Jour férié</span>`+
+    '<span style="margin-left:6px;font-size:10px;color:#999">Clic droit pour copier/coller · Double-clic pour modifier · Glisser pour déplacer</span>';
+}
+
+function renderStatutGrid(){const g=document.getElementById('statut-grid');if(!g)return;g.innerHTML=STATUTS.map(s=>`<div class="status-opt${selStatut===s.id?' sel':''}" style="${selStatut===s.id?'border-color:'+s.bg+';background:'+s.bg+'18':''}" onclick="window._selStatut('${s.id}')"><span class="status-dot-lg" style="background:${s.bg}"></span><span style="font-size:11px">${s.label}</span></div>`).join('');}
+window._selStatut=(id)=>{selStatut=id;renderStatutGrid();};
+
+function renderSlotChecks(){const c=document.getElementById('slots-checks');if(!c)return;c.innerHTML=SLOT_NAMES.map((name,i)=>`<label class="slot-check${selSlots.includes(i)?' checked':''}" id="slotcheck-${i}"><input type="checkbox" ${selSlots.includes(i)?'checked':''} onchange="window._toggleSlot(${i})"><span class="slot-check-lbl">${name}</span><span class="slot-check-time">${SLOT_LABELS[i]}</span></label>`).join('');updateSlotSummary();}
+function updateSlotSummary(){const el=document.getElementById('slots-summary');if(!el)return;if(!selSlots.length){el.innerHTML='<span style="color:#E24B4A">Sélectionnez au moins un créneau</span>';return;}const s=[...selSlots].sort();el.innerHTML=`<strong>${s.length*2}h</strong> — ${s.map(i=>SLOT_LABELS[i]).join(', ')}`;}
+window._toggleSlot=(i)=>{if(selSlots.includes(i))selSlots=selSlots.filter(s=>s!==i);else selSlots=[...selSlots,i];renderSlotChecks();};
+window._toggleFullday=()=>{const on=document.getElementById('f-fullday').checked;document.getElementById('slot-section-normal').className='slot-section-normal'+(on?' hidden':'');document.getElementById('slot-section-full').className='slot-section-full'+(on?'':' hidden');document.getElementById('toggle-hint').textContent=on?'cochez les créneaux inclus':'créneau unique';if(on){selSlots=[0,1,2,3];renderSlotChecks();}};
+
+/* ── RENDER PLAN ──
+   Principe clé : les slots sont TOUJOURS rendus et restent cliquables.
+   Pour un chantier fullday, on place une div .ch-span en position absolute
+   DANS le slot du premier créneau coché, avec une hauteur calculée pour
+   couvrir les créneaux cochés consécutifs. Les créneaux non cochés restent
+   entièrement libres et accessibles.
+*/
+function renderPlan(){
+  if(!appReady)return;
+  document.getElementById('wlbl').textContent=getWLabel();
+  const days=getDays(),today=fmtD(new Date()),grid=document.getElementById('grid');
+  const resources=Object.entries(state.resources);
+  grid.style.gridTemplateColumns=`var(--label-w) repeat(${days.length},var(--col-w))`;
+
+  let h=`<div class="corner">Technicien</div>`;
+  days.forEach(d=>{
+    const ds=fmtD(d),isT=ds===today,isWE=d.getDay()===0||d.getDay()===6,ferieName=getFerie(ds),isFerie=!!ferieName&&!isWE;
+    h+=`<div class="dh${isT?' today':''}${isWE?' we':''}${isFerie?' ferie':''}">
+      <span class="dn">${DAY_S[d.getDay()]}</span><span class="dd">${d.getDate()}</span>
+      ${isFerie?`<span class="ferie-name" title="${esc(ferieName)}">${esc(ferieName)}</span>`:''}
+    </div>`;
+  });
+
+  resources.forEach(([rid,techName])=>{
+    h+=`<div class="row-lbl">${esc(techName)}</div>`;
+    days.forEach(d=>{
+      const ds=fmtD(d),isWE=d.getDay()===0||d.getDay()===6,ferieName=getFerie(ds),isFerie=!!ferieName&&!isWE;
+      const allItems=Object.values(state.chantiers).filter(c=>c.tech===rid&&c.date===ds);
+      // Chantiers fullday de ce jour/technicien
+      const fdItems=allItems.filter(c=>c.fullday);
+      // Pour chaque slot, quels chantiers normaux y sont ?
+      // + quels slots sont "occupés" par un chantier fullday (pour les griser légèrement)
+      const fdSlotsCovered=new Set();
+      fdItems.forEach(c=>{(c.slots&&c.slots.length?c.slots:[0,1,2,3]).forEach(s=>fdSlotsCovered.add(s));});
+
+      h+=`<div class="dcg${isWE?' we':''}${isFerie?' ferie':''}" data-tech="${rid}" data-date="${ds}">`;
+
+      // Les 4 slots sont TOUJOURS rendus
+      for(let s=0;s<4;s++){
+        const si=allItems.filter(c=>!c.fullday&&c.slot===s);
+        const coveredByFd=fdSlotsCovered.has(s);
+        h+=`<div class="slot" style="background:${isFerie?'transparent':coveredByFd?'rgba(0,0,0,0.03)':SLOT_BG[s]}"
+          data-tech="${rid}" data-date="${ds}" data-slot="${s}"
+          ondragover="window._dov(event)" ondrop="window._dop(event)" ondragleave="window._dlv(event)"
+          onclick="window._slotClick(event,'${rid}','${ds}',${s})"
+          oncontextmenu="window._ctx(event,'${rid}','${ds}',${s},null)">
+          <span class="slbl">${SLOT_LABELS[s]}</span>`;
+        // Chantiers normaux dans ce slot
+        si.forEach(c=>{
+          const st=getStatut(c.statut);
+          const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+          h+=`<div class="ch" draggable="true" data-id="${c.id}"
+            style="background:${st.bg};color:${st.tx}"
+            ondragstart="window._ds(event,'${c.id}')"
+            ondblclick="window._editCh('${c.id}')"
+            oncontextmenu="window._ctx(event,'${rid}','${ds}',${s},'${c.id}')">
+            <button class="ch-del" onclick="window._delCh(event,'${c.id}')">✕</button>
+            <span class="ch-name">${esc(c.client)}</span>
+            ${aff?`<span class="ch-sub">${esc(aff.name)}</span>`:c.desc?`<span class="ch-sub">${esc(c.desc.slice(0,28))}</span>`:''}
+            <span class="ch-status">${st.label}</span>
+          </div>`;
+        });
+        h+=`</div>`;
+      }
+
+      // Chantiers fullday : placés en absolu PAR-DESSUS les slots couverts
+      // Chaque groupe de slots consécutifs = une case
+      fdItems.forEach(c=>{
+        const st=getStatut(c.statut);
+        const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+        const fdSlots=(c.slots&&c.slots.length?[...c.slots]:[0,1,2,3]).sort((a,b)=>a-b);
+        // Découper en segments consécutifs
+        const segments=[];let seg=[fdSlots[0]];
+        for(let i=1;i<fdSlots.length;i++){
+          if(fdSlots[i]===fdSlots[i-1]+1)seg.push(fdSlots[i]);
+          else{segments.push(seg);seg=[fdSlots[i]];}
+        }
+        segments.push(seg);
+        // Rendre chaque segment comme une case indépendante
+        segments.forEach(seg=>{
+          const topPx=seg[0]*58+2; // slot-h=58px
+          const heightPx=(seg.length*58)-4;
+          const hours=seg.length*2;
+          h+=`<div class="ch-span" draggable="true" data-id="${c.id}"
+            style="top:${topPx}px;height:${heightPx}px;background:${st.bg};color:${st.tx}"
+            ondragstart="window._ds(event,'${c.id}')"
+            ondblclick="window._editCh('${c.id}')"
+            oncontextmenu="window._ctx(event,'${rid}','${ds}',${seg[0]},'${c.id}')">
+            <button class="ch-del" onclick="window._delCh(event,'${c.id}')">✕</button>
+            <span class="ch-name">${esc(c.client)}</span>
+            ${aff?`<span class="ch-sub">${esc(aff.name)}</span>`:''}
+            <span class="ch-badge">${hours}h</span>
+          </div>`;
+        });
+      });
+
+      h+=`</div>`; // fin dcg
+    });
+  });
+
+  grid.innerHTML=h;
+
+  // Drag fullday sur colonne entière
+  document.querySelectorAll('.dcg').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.style.outline='2px solid var(--blue)';col.style.outlineOffset='-2px';});
+    col.addEventListener('dragleave',()=>{col.style.outline='';});
+    col.addEventListener('drop',e=>{e.preventDefault();col.style.outline='';if(!dragId)return;const c=state.chantiers[dragId];if(c&&c.fullday){c.tech=col.dataset.tech;c.date=col.dataset.date;saveState();renderPlan();dragId=null;}});
+  });
+}
+
+function renderAffaires(){
+  const chList=Object.values(state.chantiers);
+
+  // ── Section affaires ──
+  const el=document.getElementById('aff-list');
+  const affs=Object.values(state.affaires);
+  if(!affs.length){
+    el.innerHTML='<p class="empty-state">Aucune affaire créée. Ajoutez-en dans l\'onglet Ressources.</p>';
+  } else {
+    let h='';
+    affs.forEach(aff=>{
+      const items=chList.filter(c=>c.affId===aff.id);
+      const totalH=items.reduce((s,c)=>s+chantierHours(c),0);
+      const col=AFFCOLORS[aff.color||0];
+      const byTech=Object.entries(state.resources).map(([rid,name])=>{const h2=items.filter(c=>c.tech===rid).reduce((s,c)=>s+chantierHours(c),0);return h2?`${name} : <strong>${h2}h</strong>`:null;}).filter(Boolean);
+      h+=`<div class="affaire-card"><h4><span class="aff-dot" style="background:${col}"></span>${esc(aff.name)} <span class="total-badge">${totalH}h</span></h4><p class="affaire-stat">${byTech.length?byTech.join(' · '):'Aucun technicien affecté'}</p></div>`;
+    });
+    el.innerHTML=h;
+  }
+
+  // ── Section clients ponctuels (sans affaire) ──
+  const pl=document.getElementById('ponctuel-list');
+  const ponctuels=chList.filter(c=>!c.affId&&c.client);
+  if(!ponctuels.length){
+    pl.innerHTML='<p class="empty-state">Aucun créneau sans affaire rattachée.</p>';
+    return;
+  }
+  // Regrouper par client (insensible à la casse)
+  const byClient={};
+  ponctuels.forEach(c=>{
+    const key=c.client.trim().toUpperCase();
+    if(!byClient[key]) byClient[key]={name:c.client.trim(),items:[]};
+    byClient[key].items.push(c);
+  });
+  // Trier par nom client
+  const sorted=Object.values(byClient).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+  let h='';
+  sorted.forEach(({name,items})=>{
+    const totalH=items.reduce((s,c)=>s+chantierHours(c),0);
+    const byTech=Object.entries(state.resources).map(([rid,rname])=>{
+      const h2=items.filter(c=>c.tech===rid).reduce((s,c)=>s+chantierHours(c),0);
+      return h2?`${rname} : <strong>${h2}h</strong>`:null;
+    }).filter(Boolean);
+    const nCreneaux=items.length;
+    h+=`<div class="affaire-card">
+      <h4><span class="aff-dot" style="background:#888780"></span>${esc(name)} <span class="total-badge">${totalH}h</span></h4>
+      <p class="affaire-stat">${nCreneaux} créneau${nCreneaux>1?'x':''} · ${byTech.length?byTech.join(' · '):'—'}</p>
+    </div>`;
+  });
+  pl.innerHTML=h;
+}
+
+function renderResources(){
+  document.getElementById('res-list').innerHTML=Object.entries(state.resources).map(([rid,name])=>`<div class="res-row"><span class="res-name">${esc(name)}</span><button class="res-del" onclick="window._delRes('${rid}')">Supprimer</button></div>`).join('')||'<p class="empty-state">Aucune ressource.</p>';
+  const chList=Object.values(state.chantiers);
+  document.getElementById('aff-ref-list').innerHTML=Object.values(state.affaires).map(a=>{const totalH=chList.filter(c=>c.affId===a.id).reduce((s,c)=>s+chantierHours(c),0);return`<div class="res-row"><span class="aff-dot" style="background:${AFFCOLORS[a.color||0]};width:10px;height:10px;border-radius:50%;flex-shrink:0"></span><span class="res-name">${esc(a.name)} <span style="color:#999;font-size:10px">(${totalH}h)</span></span><button class="res-del" onclick="window._delAff('${a.id}')">Supprimer</button></div>`;}).join('')||'<p class="empty-state">Aucune affaire.</p>';
+}
+
+function renderAffCpick(){const cp=document.getElementById('aff-cpick');if(!cp)return;cp.innerHTML=AFFCOLORS.map((c,i)=>`<div class="copt${affSelColor===i?' sel':''}" style="background:${c}" onclick="window._selAffC(${i})"></div>`).join('');}
+window._selAffC=(i)=>{affSelColor=i;renderAffCpick();};
+
+window.switchTab=(t)=>{currentTab=t;['plan','aff','res'].forEach(x=>{document.getElementById('view-'+x).style.display=x===t?'block':'none';document.getElementById('tab-'+x).className='tab-btn'+(x===t?' active':'');});if(t==='aff')renderAffaires();if(t==='res')renderResources();};
+window.navigate=(dir)=>{startDate=addDays(startDate,dir*14);renderPlan();};
+window.goToday=()=>{startDate=getMonday(new Date());renderPlan();};
+window._ds=(e,id)=>{dragId=id;e.dataTransfer.effectAllowed='move';setTimeout(()=>{const el=document.querySelector(`[data-id="${id}"]`);if(el)el.style.opacity='0.4';},0);};
+window._dov=(e)=>{e.preventDefault();e.currentTarget.classList.add('dov');};
+window._dlv=(e)=>{e.currentTarget.classList.remove('dov');};
+window._dop=(e)=>{e.preventDefault();e.currentTarget.classList.remove('dov');if(!dragId||!state.chantiers[dragId])return;const c=state.chantiers[dragId];if(c.fullday)return;const sl=e.currentTarget;c.tech=sl.dataset.tech;c.date=sl.dataset.date;c.slot=parseInt(sl.dataset.slot);saveState();renderPlan();dragId=null;};
+window._ctx=(e,tech,date,slot,chId)=>{e.preventDefault();e.stopPropagation();showCtxMenu(e,{tech,date,slot:parseInt(slot),chId:chId||null});};
+window._slotClick=(e,tech,date,slot)=>{if(e.target.closest('.ch')||e.target.closest('.ch-span'))return;openModal(null,tech,date,slot);};
+window._editCh=(id)=>openModal(id);
+window._delCh=(e,id)=>{e.stopPropagation();if(!confirm('Supprimer ?'))return;delete state.chantiers[id];saveState();renderPlan();};
+window._delRes=(rid)=>{if(!confirm('Supprimer ?'))return;delete state.resources[rid];saveState();renderResources();renderPlan();};
+window._delAff=(aid)=>{if(!confirm('Supprimer ?'))return;delete state.affaires[aid];Object.values(state.chantiers).forEach(c=>{if(c.affId===aid)delete c.affId;});saveState();renderResources();renderAffaires();};
+window.addResource=()=>{const inp=document.getElementById('new-res'),v=inp.value.trim();if(!v)return;state.resources[uid()]=v;inp.value='';saveState();renderResources();renderPlan();};
+window.addAffaire=()=>{const inp=document.getElementById('new-aff'),v=inp.value.trim();if(!v)return;const id=uid();state.affaires[id]={id,name:v,color:affSelColor};inp.value='';saveState();renderResources();};
+
+function openModal(id,tech,date,slot){
+  editId=id||null;
+  document.getElementById('modal-title').textContent=editId?'Modifier le chantier':'Nouveau chantier';
+  const ts=document.getElementById('f-tech');
+  ts.innerHTML=Object.entries(state.resources).map(([rid,n])=>`<option value="${rid}">${esc(n)}</option>`).join('');
+  if(editId&&state.chantiers[editId]){
+    const c=state.chantiers[editId];
+    document.getElementById('f-client').value=c.client;
+    document.getElementById('f-desc').value=c.desc||'';
+    ts.value=c.tech;
+    const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+    document.getElementById('f-aff-input').value=aff?aff.name:'';
+    document.getElementById('f-date').value=c.date;
+    document.getElementById('f-slot').value=c.slot||0;
+    const isF=!!c.fullday;
+    document.getElementById('f-fullday').checked=isF;
+    document.getElementById('slot-section-normal').className='slot-section-normal'+(isF?' hidden':'');
+    document.getElementById('slot-section-full').className='slot-section-full'+(isF?'':' hidden');
+    document.getElementById('toggle-hint').textContent=isF?'cochez les créneaux inclus':'créneau unique';
+    selStatut=c.statut||'confirmed';selSlots=c.slots&&c.slots.length?[...c.slots]:[0,1,2,3];
+  } else {
+    document.getElementById('f-client').value='';document.getElementById('f-desc').value='';
+    document.getElementById('f-aff-input').value='';
+    if(tech)ts.value=tech;
+    document.getElementById('f-date').value=date||fmtD(new Date());
+    document.getElementById('f-slot').value=slot!==undefined?slot:0;
+    document.getElementById('f-fullday').checked=false;
+    document.getElementById('slot-section-normal').className='slot-section-normal';
+    document.getElementById('slot-section-full').className='slot-section-full hidden';
+    document.getElementById('toggle-hint').textContent='créneau unique';
+    selStatut='confirmed';selSlots=[0,1,2,3];
+  }
+  renderStatutGrid();renderSlotChecks();
+  document.getElementById('modal-bg').style.display='flex';
+  setTimeout(()=>{setupAutocomplete('f-client',getClientList);setupAutocomplete('f-aff-input',getAffaireList);document.getElementById('f-client').focus();},50);
+}
+
+window.closeModal=()=>{document.getElementById('modal-bg').style.display='none';editId=null;};
+window.openModal=openModal;
+
+window.saveChantier=()=>{
+  const client=document.getElementById('f-client').value.trim();if(!client){alert('Merci de saisir un libellé.');return;}
+  const fullday=document.getElementById('f-fullday').checked;
+  if(fullday&&!selSlots.length){alert('Sélectionnez au moins un créneau.');return;}
+  const tech=document.getElementById('f-tech').value,date=document.getElementById('f-date').value;
+  const slot=parseInt(document.getElementById('f-slot').value),desc=document.getElementById('f-desc').value.trim();
+  const affInput=document.getElementById('f-aff-input').value.trim();
+  let affId=null;
+  if(affInput){
+    const found=Object.values(state.affaires).find(a=>a.name.toLowerCase()===affInput.toLowerCase());
+    affId=found?found.id:null;
+    console.log('[save] affInput=',affInput,'found=',found,'affId=',affId);
+    console.log('[save] affaires dispo=',Object.values(state.affaires).map(a=>a.name));
+  }
+  const id=editId||uid();
+  console.log('[save] editId=',editId,'id=',id,'client=',client,'affId=',affId);
+  state.chantiers[id]={id,client,desc,tech,date,slot:fullday?selSlots[0]||0:slot,statut:selStatut,affId,fullday:fullday||false,slots:fullday?[...selSlots].sort():[slot]};
+  console.log('[save] chantier sauvé=',JSON.stringify(state.chantiers[id]));
+  saveState();closeModal();renderPlan();
+};
+
+onValue(dbRef,(snapshot)=>{
+  const data=snapshot.val();
+  if(data)state={chantiers:{},resources:{},affaires:{},...data};
+  if(!appReady)initApp();
+  else{renderPlan();if(currentTab==='aff')renderAffaires();if(currentTab==='res')renderResources();}
+  setSynced('ok');
+});
+</script>
+</body>
+</html>
