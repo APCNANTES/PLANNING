@@ -93,9 +93,13 @@
   .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
   .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 
+  /* Badge modifié */
+  .ch-updated-mobile { display:inline-block;background:#EAC100;color:#7a5c00;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-bottom:4px; }
   #loading { text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px; }
   .fade-in { animation: fadeIn .2s ease; }
   @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+  /* Badge modifié */
+  .ch-updated-mobile { display:inline-block;background:#EAC100;color:#7a5c00;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-bottom:4px;line-height:1.4; }
 </style>
 </head>
 <body>
@@ -144,6 +148,17 @@ let currentDate=new Date();
 let appReady=false;
 
 function fmtD(d){return d.toISOString().slice(0,10);}
+function updatedBadge(c){
+  if(!c.updatedAt) return '';
+  const diff=Date.now()-c.updatedAt;
+  if(diff>86400000) return '';
+  const mins=Math.floor(diff/60000);
+  const hours=Math.floor(diff/3600000);
+  const label=mins<60?`il y a ${mins}mn`:`il y a ${hours}h`;
+  const who=c.updatedBy?` · ${c.updatedBy}`:'';
+  return `<div class="ch-updated-mobile">Modifié ${label}${who}</div>`;
+}
+
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function chantierHours(c){if(!c.fullday)return 2;const s=c.slots&&c.slots.length?c.slots:[0,1,2,3];return s.length*2;}
@@ -248,6 +263,7 @@ function render(){
         const fdSlots=fdItem.slots&&fdItem.slots.length?fdItem.slots:[0,1,2,3];
         const hours=fdSlots.length*2;
         h+=`<div class="fullday-block" style="background:${st.bg};color:${st.tx}">
+          ${updatedBadge(fdItem)}
           <span class="fullday-label">Journée</span>
           <div class="fullday-name">${esc(fdItem.client)}</div>
           ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
@@ -264,6 +280,7 @@ function render(){
               <div class="slot-time">${SLOT_LABELS[c.slot||0]}</div>
               <div class="slot-content">
                 <div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}">
+                  ${updatedBadge(c)}
                   <div class="ch-mobile-name">${esc(c.client)}</div>
                   ${aff2?`<div class="ch-mobile-aff">${esc(aff2.name)}</div>`:''}
                   ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div>`:''}
@@ -286,6 +303,7 @@ function render(){
               const st=getStatut(c.statut);
               const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
               h+=`<div class="ch-mobile" style="background:${st.bg};color:${st.tx}">
+                ${updatedBadge(c)}
                 <div class="ch-mobile-name">${esc(c.client)}</div>
                 ${aff?`<div class="ch-mobile-aff">${esc(aff.name)}</div>`:''}
                 ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div>`:''}
