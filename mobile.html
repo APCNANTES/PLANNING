@@ -249,8 +249,7 @@ function render(){
 
   // Contenu
   const resources = Object.entries(state.resources);
-  const firebaseDs = dsAddDays(ds,-1); // dates stockées J-1 dans Firebase
-  const allItems = Object.values(state.chantiers).filter(c=>c.date===firebaseDs);
+  const allItems = Object.values(state.chantiers).filter(c=>c.date===ds);
   let h = '';
 
   if(ferieName && !isWE){
