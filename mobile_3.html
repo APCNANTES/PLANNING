@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Planning APC">
+<meta name="theme-color" content="#185FA5">
+<title>Planning APC</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --blue: #185FA5; --blue-dark: #0C447C; --blue-light: #E6F1FB;
+    --mauve-light: #EEEDFE; --mauve-dark: #534AB7;
+    --bg: #f0f0ee; --card: #ffffff; --text: #1a1a1a; --text2: #666; --text3: #999;
+    --border: 0.5px solid #d0d0d0; --radius: 10px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Header */
+  .header { background: var(--blue); color: #fff; padding: 14px 16px 10px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .header h1 { font-size: 17px; font-weight: 700; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; display: inline-block; }
+  .sync-dot.err { background: #f87171; }
+  .sync-dot.loading { background: #fbbf24; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Navigation jours */
+  .day-nav { display: flex; align-items: center; gap: 8px; }
+  .day-nav-btn { background: rgba(255,255,255,.2); border: none; color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 16px; cursor: pointer; }
+  .day-nav-btn:active { background: rgba(255,255,255,.35); }
+  .day-info { flex: 1; text-align: center; }
+  .day-info .day-name { font-size: 16px; font-weight: 700; }
+  .day-info .day-date { font-size: 12px; opacity: .85; margin-top: 1px; }
+  .today-btn { background: rgba(255,255,255,.2); border: none; color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .today-btn:active { background: rgba(255,255,255,.35); }
+
+  /* Semaine mini */
+  .week-strip { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .week-strip::-webkit-scrollbar { display: none; }
+  .week-day { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 6px; border-radius: 8px; cursor: pointer; min-width: 36px; }
+  .week-day .wd-name { font-size: 10px; opacity: .75; font-weight: 500; }
+  .week-day .wd-num { font-size: 14px; font-weight: 700; }
+  .week-day.active { background: rgba(255,255,255,.25); }
+  .week-day.today-dot .wd-num { text-decoration: underline; }
+  .week-day.ferie { opacity: .5; }
+  .week-day.we { opacity: .4; }
+  .week-day .has-events { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; margin: 0 auto; }
+
+  /* Contenu */
+  .content { padding: 12px; }
+
+  /* Bannière jour férié */
+  .ferie-banner { background: var(--mauve-light); color: var(--mauve-dark); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; font-size: 13px; font-weight: 600; text-align: center; }
+
+  /* Carte technicien */
+  .tech-card { background: var(--card); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .tech-header { padding: 10px 14px; border-bottom: var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .tech-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .tech-hours { font-size: 11px; font-weight: 600; color: var(--text2); background: #f0f0ee; padding: 2px 8px; border-radius: 10px; }
+
+  /* Créneaux */
+  .slot-row { display: flex; align-items: stretch; border-bottom: var(--border); }
+  .slot-row:last-child { border-bottom: none; }
+  .slot-time { width: 72px; flex-shrink: 0; font-size: 10px; font-weight: 600; color: var(--text3); padding: 10px 8px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.3; border-right: var(--border); background: #fafafa; }
+  .slot-content { flex: 1; padding: 6px 10px; min-height: 52px; display: flex; flex-direction: column; justify-content: center; }
+  .slot-empty { color: var(--text3); font-size: 12px; font-style: italic; }
+
+  /* Chantier mobile */
+  .ch-mobile { border-radius: 8px; padding: 8px 10px; margin: 2px 0; position: relative; }
+  .ch-mobile-name { font-size: 14px; font-weight: 700; line-height: 1.2; }
+  .ch-mobile-aff { font-size: 11px; opacity: .85; margin-top: 2px; }
+  .ch-mobile-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; opacity: .8; }
+  .ch-mobile-note { font-size: 12px; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,.3); line-height: 1.4; }
+  .ch-mobile-hours { position: absolute; top: 6px; right: 8px; font-size: 10px; font-weight: 700; opacity: .75; background: rgba(0,0,0,.12); border-radius: 4px; padding: 1px 5px; }
+
+  /* Journée entière */
+  .fullday-block { border-radius: 8px; padding: 10px 12px; margin: 8px 10px; position: relative; }
+  .fullday-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
+  .fullday-name { font-size: 15px; font-weight: 700; margin-top: 2px; }
+  .fullday-aff { font-size: 11px; opacity: .85; margin-top: 2px; }
+  .fullday-note { font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.3); line-height: 1.4; }
+  .fullday-hours { position: absolute; top: 8px; right: 10px; font-size: 11px; font-weight: 700; opacity: .75; background: rgba(0,0,0,.12); border-radius: 5px; padding: 2px 7px; }
+
+  /* Aucun chantier */
+  .empty-day { text-align: center; padding: 30px; color: var(--text3); font-size: 14px; }
+
+  /* Légende statuts */
+  .legend { background: var(--card); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .legend-title { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  /* Badge modifié */
+  .ch-updated-mobile { display:inline-block;background:#EAC100;color:#7a5c00;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-bottom:4px; }
+  #loading { text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px; }
+  .fade-in { animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+  /* Badge modifié */
+  .ch-updated-mobile { display:inline-block;background:#EAC100;color:#7a5c00;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-bottom:4px;line-height:1.4; }
+</style>
+</head>
+<body>
+<div id="loading">Chargement du planning...</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBGE_SJBR7K04g1s8SO6MFsFvu13B34RYw",
+  authDomain: "apc-planning.firebaseapp.com",
+  databaseURL: "https://apc-planning-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "apc-planning",
+  storageBucket: "apc-planning.firebasestorage.app",
+  messagingSenderId: "319467196433",
+  appId: "1:319467196433:web:4562f95557aea6eae7a1b0"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+const dbRef = ref(db, 'planning');
+
+/* ── JOURS FÉRIÉS ── */
+function easterSunday(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;return new Date(y,month-1,day);}
+function getFeries(y){const E=easterSunday(y),add=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;},fmt=d=>d.toISOString().slice(0,10);return{[fmt(new Date(y,0,1))]:"Jour de l'An",[fmt(add(E,1))]:"Lundi de Pâques",[fmt(new Date(y,4,1))]:"Fête du Travail",[fmt(new Date(y,4,8))]:"Victoire 1945",[fmt(add(E,39))]:"Ascension",[fmt(add(E,50))]:"Lundi de Pentecôte",[fmt(new Date(y,6,14))]:"Fête Nationale",[fmt(new Date(y,7,15))]:"Assomption",[fmt(new Date(y,10,1))]:"Toussaint",[fmt(new Date(y,10,11))]:"Armistice",[fmt(new Date(y,11,25))]:"Noël"};}
+const feriesCache={};
+function getFerie(ds){const y=parseInt(ds.slice(0,4));if(!feriesCache[y])feriesCache[y]=getFeries(y);return feriesCache[y][ds]||null;}
+
+const STATUTS={
+  confirmed:{label:'RV confirmé',bg:'#1B3A6B',tx:'#fff'},
+  unconfirmed:{label:'RV non confirmé',bg:'#1D9E75',tx:'#fff'},
+  toconfirm:{label:'RV à confirmer',bg:'#888780',tx:'#fff'},
+  empty:{label:'Vide à remplir',bg:'#E24B4A',tx:'#fff'},
+  holiday:{label:'Congés',bg:'#EAC100',tx:'#7a5c00'},
+  unavailable:{label:'Autre indisponibilité',bg:'#6B3A1B',tx:'#fff'},
+};
+function getStatut(id){return STATUTS[id]||STATUTS.confirmed;}
+
+const SLOT_LABELS=['8h-10h','10h-12h','13h30-15h30','15h30-17h30'];
+const DAY_NAMES_FULL=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const DAY_NAMES_SHORT=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+
+let state={chantiers:{},resources:{},affaires:{}};
+let currentDate=new Date();
+let appReady=false;
+
+function fmtD(d){return d.toISOString().slice(0,10);}
+function updatedBadge(c){
+  if(!c.updatedAt) return '';
+  const diff=Date.now()-c.updatedAt;
+  if(diff>86400000) return '';
+  const mins=Math.floor(diff/60000);
+  const hours=Math.floor(diff/3600000);
+  const label=mins<60?`il y a ${mins}mn`:`il y a ${hours}h`;
+  const who=c.updatedBy?` · ${c.updatedBy}`:'';
+  return `<div class="ch-updated-mobile">Modifié ${label}${who}</div>`;
+}
+
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function chantierHours(c){if(!c.fullday)return 2;const s=c.slots&&c.slots.length?c.slots:[0,1,2,3];return s.length*2;}
+
+function getWeekStart(d){const c=new Date(d),dy=c.getDay();c.setDate(c.getDate()-(dy===0?6:dy-1));c.setHours(0,0,0,0);return c;}
+
+function setSynced(s){
+  const dot=document.getElementById('sync-dot');if(!dot)return;
+  dot.className='sync-dot'+(s==='err'?' err':s==='loading'?' loading':'');
+}
+
+function initApp(){
+  document.getElementById('loading').style.display='none';
+  document.body.innerHTML=`
+    <div class="header">
+      <div class="header-top">
+        <h1>Planning APC <span class="sync-dot" id="sync-dot"></span></h1>
+        <button class="today-btn" onclick="goToday()">Aujourd'hui</button>
+      </div>
+      <div class="day-nav" style="margin-bottom:10px">
+        <button class="day-nav-btn" onclick="navigate(-1)">&#8249;</button>
+        <div class="day-info">
+          <div class="day-name" id="day-name"></div>
+          <div class="day-date" id="day-date"></div>
+        </div>
+        <button class="day-nav-btn" onclick="navigate(1)">&#8250;</button>
+      </div>
+      <div class="week-strip" id="week-strip"></div>
+    </div>
+    <div class="content" id="content"></div>
+  `;
+  appReady=true;
+  render();
+}
+
+function navigate(dir){currentDate=addDays(currentDate,dir);render();}
+window.navigate=navigate;
+window.goToday=()=>{currentDate=new Date();render();};
+
+function render(){
+  if(!appReady)return;
+  const ds=fmtD(currentDate);
+  const today=fmtD(new Date());
+  const ferieName=getFerie(ds);
+  const isWE=currentDate.getDay()===0||currentDate.getDay()===6;
+
+  // Header
+  document.getElementById('day-name').textContent=DAY_NAMES_FULL[currentDate.getDay()];
+  document.getElementById('day-date').textContent=currentDate.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+
+  // Week strip — 7 jours autour de la date
+  const weekStart=getWeekStart(currentDate);
+  let wh='';
+  for(let i=0;i<7;i++){
+    const d=addDays(weekStart,i);
+    const dds=fmtD(d);
+    const isT=dds===today;
+    const isA=dds===ds;
+    const isWe=d.getDay()===0||d.getDay()===6;
+    const isFer=!!getFerie(dds)&&!isWe;
+    const hasEvents=Object.values(state.chantiers).some(c=>c.date===dds);
+    wh+=`<div class="week-day${isA?' active':''}${isT?' today-dot':''}${isWe?' we':''}${isFer?' ferie':''}" onclick="jumpTo('${dds}')">
+      <span class="wd-name">${DAY_NAMES_SHORT[d.getDay()]}</span>
+      <span class="wd-num">${d.getDate()}</span>
+      ${hasEvents?'<span class="has-events"></span>':'<span style="height:5px"></span>'}
+    </div>`;
+  }
+  document.getElementById('week-strip').innerHTML=wh;
+
+  // Contenu
+  const resources=Object.entries(state.resources);
+  const allItems=Object.values(state.chantiers).filter(c=>c.date===ds);
+  let h='';
+
+  // Bannière férié
+  if(ferieName&&!isWE){
+    h+=`<div class="ferie-banner">🎉 ${esc(ferieName)}</div>`;
+  }
+
+  // Aucun chantier du tout
+  const hasAny=allItems.length>0;
+  if(!hasAny&&!isWE){
+    h+=`<div class="empty-day">Aucun chantier planifié ce jour</div>`;
+  } else if(isWE){
+    h+=`<div class="empty-day">Week-end 🎉</div>`;
+  } else {
+    resources.forEach(([rid,techName])=>{
+      const techItems=allItems.filter(c=>c.tech===rid);
+      if(!techItems.length) return; // masquer les techniciens sans chantier ce jour
+      const fdItem=techItems.find(c=>c.fullday);
+      const totalH=techItems.reduce((s,c)=>s+chantierHours(c),0);
+
+      h+=`<div class="tech-card fade-in">
+        <div class="tech-header">
+          <span class="tech-name">${esc(techName)}</span>
+          <span class="tech-hours">${totalH}h</span>
+        </div>`;
+
+      if(fdItem){
+        const st=getStatut(fdItem.statut);
+        const aff=fdItem.affId&&state.affaires[fdItem.affId]?state.affaires[fdItem.affId]:null;
+        const fdSlots=fdItem.slots&&fdItem.slots.length?fdItem.slots:[0,1,2,3];
+        const hours=fdSlots.length*2;
+        h+=`<div class="fullday-block" style="background:${st.bg};color:${st.tx}">
+          ${updatedBadge(fdItem)}
+          <span class="fullday-label">Journée</span>
+          <div class="fullday-name">${esc(fdItem.client)}</div>
+          ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
+          ${fdItem.note?`<div class="fullday-note">${esc(fdItem.note)}</div>`:''}
+          <span class="fullday-hours">${hours}h</span>
+        </div>`;
+        // Autres créneaux du même jour (créneaux normaux en dehors de la journée)
+        const others=techItems.filter(c=>!c.fullday);
+        if(others.length){
+          others.forEach(c=>{
+            const st2=getStatut(c.statut);
+            const aff2=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+            h+=`<div class="slot-row">
+              <div class="slot-time">${SLOT_LABELS[c.slot||0]}</div>
+              <div class="slot-content">
+                <div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}">
+                  ${updatedBadge(c)}
+                  <div class="ch-mobile-name">${esc(c.client)}</div>
+                  ${aff2?`<div class="ch-mobile-aff">${esc(aff2.name)}</div>`:''}
+                  ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div>`:''}
+                  <div class="ch-mobile-status">${st2.label}</div>
+                </div>
+              </div>
+            </div>`;
+          });
+        }
+      } else {
+        for(let s=0;s<4;s++){
+          const si=techItems.filter(c=>c.slot===s&&!c.fullday);
+          h+=`<div class="slot-row">
+            <div class="slot-time">${SLOT_LABELS[s]}</div>
+            <div class="slot-content">`;
+          if(!si.length){
+            h+=`<span class="slot-empty">Libre</span>`;
+          } else {
+            si.forEach(c=>{
+              const st=getStatut(c.statut);
+              const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+              h+=`<div class="ch-mobile" style="background:${st.bg};color:${st.tx}">
+                ${updatedBadge(c)}
+                <div class="ch-mobile-name">${esc(c.client)}</div>
+                ${aff?`<div class="ch-mobile-aff">${esc(aff.name)}</div>`:''}
+                ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div>`:''}
+                <div class="ch-mobile-status">${st.label}</div>
+              </div>`;
+            });
+          }
+          h+=`</div></div>`;
+        }
+      }
+      h+=`</div>`;
+    });
+
+    // Si tous les techniciens sont libres
+    if(!resources.some(([rid])=>allItems.some(c=>c.tech===rid))){
+      h+=`<div class="empty-day">Aucun chantier planifié ce jour</div>`;
+    }
+  }
+
+  // Légende
+  h+=`<div class="legend">
+    <div class="legend-title">Statuts</div>
+    <div class="legend-grid">
+      ${Object.values(STATUTS).map(s=>`<div class="legend-item"><span class="legend-dot" style="background:${s.bg}"></span>${s.label}</div>`).join('')}
+    </div>
+  </div>`;
+
+  document.getElementById('content').innerHTML=h;
+}
+
+window.jumpTo=(ds)=>{
+  const [y,m,d]=ds.split('-').map(Number);
+  currentDate=new Date(y,m-1,d);
+  render();
+};
+
+onValue(dbRef,(snapshot)=>{
+  const data=snapshot.val();
+  if(data)state={chantiers:{},resources:{},affaires:{},...data};
+  if(!appReady)initApp();
+  else render();
+  setSynced('ok');
+});
+</script>
+</body>
+</html>
