@@ -147,11 +147,18 @@ function getStatut(id){return STATUTS[id]||STATUTS.confirmed;}
 function chantierHours(c){if(!c.fullday)return 2;const s=c.slots&&c.slots.length?c.slots:[0,1,2,3];return s.length*2;}
 
 // Navigation basée sur les strings YYYY-MM-DD pour éviter tout problème timezone
-function dsAddDays(ds,n){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return localDateStr(d);}
-function dsWeekStart(ds){const d=new Date(ds+'T12:00:00'),dy=d.getDay();return dsAddDays(ds,-(dy===0?6:dy-1));}
-function dsDayOfWeek(ds){return new Date(ds+'T12:00:00').getDay();}
+// Navigation 100% arithmétique sur YYYY-MM-DD, zéro objet Date
+function dsToParts(ds){return[parseInt(ds.slice(0,4)),parseInt(ds.slice(5,7))-1,parseInt(ds.slice(8,10))];}
 function dsGetDate(ds){return parseInt(ds.slice(8,10));}
-function todayDs(){return localDateStr(new Date());}
+function dsAddDays(ds,n){
+  const [y,m,d]=dsToParts(ds);
+  const dt=new Date(y,m,d); // minuit LOCAL — pas de string, pas de T12:00:00
+  dt.setDate(dt.getDate()+n);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function dsDayOfWeek(ds){const[y,m,d]=dsToParts(ds);return new Date(y,m,d).getDay();}
+function dsWeekStart(ds){const dy=dsDayOfWeek(ds);return dsAddDays(ds,-(dy===0?6:dy-1));}
+function todayDs(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 
 /* ── JOURS FÉRIÉS ── */
 function easterSunday(y){
@@ -209,21 +216,19 @@ function setSynced(s){
 function render(){
   const ds = currentDate;
   const today = todayDs();
-  console.log('render ds=',ds,'today=',today);
   const ferieName = getFerie(ds);
   const isWE = dsDayOfWeek(currentDate)===0 || dsDayOfWeek(currentDate)===6;
 
   // Header
   document.getElementById('day-name').textContent = DAY_FULL[dsDayOfWeek(currentDate)];
   const [_y,_m,_d]=currentDate.split('-').map(Number);
-  document.getElementById('day-date').textContent = new Date(_y,_m-1,_d,12).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('day-date').textContent = new Date(_y,_m-1,_d).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
 
   // Week strip
   const weekStart = dsWeekStart(currentDate);
   let wh = '';
   for(let i=0;i<7;i++){
     const dds = dsAddDays(weekStart,i);
-    console.log('strip i=',i,'dds=',dds,'isA=',dds===ds);
     const isA = dds===ds;
     const isWe = dsDayOfWeek(dds)===0||dsDayOfWeek(dds)===6;
     const isFer = !!getFerie(dds)&&!isWe;
