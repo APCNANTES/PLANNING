@@ -137,17 +137,21 @@ const DAY_SHORT    = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 
 /* ── ÉTAT ── */
 let state = {chantiers:{}, resources:{}, affaires:{}};
-let currentDate = new Date();
-currentDate.setHours(12,0,0,0);
+let currentDate = todayDs(); // string YYYY-MM-DD
 
 /* ── HELPERS ── */
 function fmtD(d){return d.toISOString().slice(0,10);}
 function localDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);r.setHours(12,0,0,0);return r;}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function getStatut(id){return STATUTS[id]||STATUTS.confirmed;}
 function chantierHours(c){if(!c.fullday)return 2;const s=c.slots&&c.slots.length?c.slots:[0,1,2,3];return s.length*2;}
-function getWeekStart(d){const c=new Date(d),dy=c.getDay();c.setDate(c.getDate()-(dy===0?6:dy-1));c.setHours(12,0,0,0);return c;}
+
+// Navigation basée sur les strings YYYY-MM-DD pour éviter tout problème timezone
+function dsAddDays(ds,n){const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return localDateStr(d);}
+function dsWeekStart(ds){const d=new Date(ds+'T12:00:00'),dy=d.getDay();return dsAddDays(ds,-(dy===0?6:dy-1));}
+function dsDayOfWeek(ds){return new Date(ds+'T12:00:00').getDay();}
+function dsGetDate(ds){return parseInt(ds.slice(8,10));}
+function todayDs(){return localDateStr(new Date());}
 
 /* ── JOURS FÉRIÉS ── */
 function easterSunday(y){
@@ -203,36 +207,35 @@ function setSynced(s){
 
 /* ── RENDER ── */
 function render(){
-  const ds = localDateStr(currentDate);
-  const todayDs = localDateStr(new Date());
+  const ds = currentDate;
+  const today = todayDs();
   const ferieName = getFerie(ds);
-  const isWE = currentDate.getDay()===0 || currentDate.getDay()===6;
+  const isWE = dsDayOfWeek(currentDate)===0 || dsDayOfWeek(currentDate)===6;
 
   // Header
-  document.getElementById('day-name').textContent = DAY_FULL[currentDate.getDay()];
-  document.getElementById('day-date').textContent = currentDate.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('day-name').textContent = DAY_FULL[dsDayOfWeek(currentDate)];
+  const [_y,_m,_d]=currentDate.split('-').map(Number);
+  document.getElementById('day-date').textContent = new Date(_y,_m-1,_d,12).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
 
   // Week strip
-  const weekStart = getWeekStart(currentDate);
+  const weekStart = dsWeekStart(currentDate);
   let wh = '';
   for(let i=0;i<7;i++){
-    const d = addDays(weekStart,i);
-    const dds = localDateStr(d);
+    const dds = dsAddDays(weekStart,i);
     const isA = dds===ds;
-    const isWe = d.getDay()===0||d.getDay()===6;
+    const isWe = dsDayOfWeek(dds)===0||dsDayOfWeek(dds)===6;
     const isFer = !!getFerie(dds)&&!isWe;
     const hasEv = Object.values(state.chantiers).some(c=>c.date===dds);
     wh += `<div class="week-day${isA?' active':''}${isWe?' we':''}${isFer?' ferie':''}" data-ds="${dds}">
-      <span class="wd-name">${DAY_SHORT[d.getDay()]}</span>
-      <span class="wd-num">${d.getDate()}</span>
+      <span class="wd-name">${DAY_SHORT[dsDayOfWeek(dds)]}</span>
+      <span class="wd-num">${dsGetDate(dds)}</span>
       <span class="${hasEv?'dot':'dot-empty'}"></span>
     </div>`;
   }
   document.getElementById('week-strip').innerHTML = wh;
   document.querySelectorAll('.week-day').forEach(el=>{
     el.addEventListener('click',()=>{
-      const [y,m,d]=el.dataset.ds.split('-').map(Number);
-      currentDate=new Date(y,m-1,d,12,0,0);
+      currentDate=el.dataset.ds;
       render();
     });
   });
@@ -335,13 +338,13 @@ function render(){
 
 /* ── BOUTONS (attachés aux éléments HTML fixes, pas innerHTML) ── */
 document.getElementById('btn-prev').addEventListener('click',()=>{
-  currentDate=addDays(currentDate,-1); render();
+  currentDate=dsAddDays(currentDate,-1); render();
 });
 document.getElementById('btn-next').addEventListener('click',()=>{
-  currentDate=addDays(currentDate,1); render();
+  currentDate=dsAddDays(currentDate,1); render();
 });
 document.getElementById('btn-today').addEventListener('click',()=>{
-  currentDate=new Date(); currentDate.setHours(12,0,0,0); render();
+  currentDate=todayDs(); render();
 });
 
 /* ── FIREBASE ── */
