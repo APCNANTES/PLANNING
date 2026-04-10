@@ -137,7 +137,7 @@ const DAY_SHORT    = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 
 /* ── ÉTAT ── */
 let state = {chantiers:{}, resources:{}, affaires:{}};
-let currentDate = todayDs(); // string YYYY-MM-DD
+let currentDate = ''; // initialisé après les helpers
 
 /* ── HELPERS ── */
 function fmtD(d){return d.toISOString().slice(0,10);}
@@ -209,6 +209,7 @@ function setSynced(s){
 function render(){
   const ds = currentDate;
   const today = todayDs();
+  console.log('render ds=',ds,'today=',today);
   const ferieName = getFerie(ds);
   const isWE = dsDayOfWeek(currentDate)===0 || dsDayOfWeek(currentDate)===6;
 
@@ -222,6 +223,7 @@ function render(){
   let wh = '';
   for(let i=0;i<7;i++){
     const dds = dsAddDays(weekStart,i);
+    console.log('strip i=',i,'dds=',dds,'isA=',dds===ds);
     const isA = dds===ds;
     const isWe = dsDayOfWeek(dds)===0||dsDayOfWeek(dds)===6;
     const isFer = !!getFerie(dds)&&!isWe;
@@ -348,6 +350,7 @@ document.getElementById('btn-today').addEventListener('click',()=>{
 });
 
 /* ── FIREBASE ── */
+currentDate = todayDs(); // initialisation ici après que todayDs soit définie
 onValue(dbRef,(snapshot)=>{
   const data=snapshot.val();
   if(data)state={chantiers:{},resources:{},affaires:{},...data};
