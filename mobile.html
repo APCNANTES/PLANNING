@@ -66,13 +66,19 @@
   .ch-mobile-name { font-size: 14px; font-weight: 700; line-height: 1.2; }
   .ch-mobile-aff { font-size: 11px; opacity: .85; margin-top: 2px; }
   .ch-mobile-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; opacity: .8; }
-  .ch-mobile-note { font-size: 12px; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,.3); line-height: 1.4; }
+  .ch-mobile-note { font-size: 12px; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,.3); line-height: 1.4; display:none; }
+  .ch-mobile.expanded .ch-mobile-note { display:block; }
+  .ch-mobile-tap { font-size:10px; opacity:.6; margin-top:4px; }
+  .ch-mobile.expanded .ch-mobile-tap { display:none; }
 
   .fullday-block { border-radius: 8px; padding: 10px 12px; margin: 8px 10px; position: relative; }
   .fullday-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
   .fullday-name { font-size: 15px; font-weight: 700; margin-top: 2px; }
   .fullday-aff { font-size: 11px; opacity: .85; margin-top: 2px; }
-  .fullday-note { font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.3); line-height: 1.4; }
+  .fullday-note { font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.3); line-height: 1.4; display:none; }
+  .fullday-block.expanded .fullday-note { display:block; }
+  .fullday-tap { font-size:10px; opacity:.6; margin-top:4px; }
+  .fullday-block.expanded .fullday-tap { display:none; }
   .fullday-hours { position: absolute; top: 8px; right: 10px; font-size: 11px; font-weight: 700; opacity: .75; background: rgba(0,0,0,.12); border-radius: 5px; padding: 2px 7px; }
 
   .legend { background: var(--card); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
@@ -278,12 +284,12 @@ function render(){
         const st = getStatut(fdItem.statut);
         const aff = fdItem.affId&&state.affaires[fdItem.affId]?state.affaires[fdItem.affId]:null;
         const fdSlots = fdItem.slots&&fdItem.slots.length?fdItem.slots:[0,1,2,3];
-        h += `<div class="fullday-block" style="background:${st.bg};color:${st.tx}">
+        h += `<div class="fullday-block" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
           ${updatedBadge(fdItem)}
           <div class="fullday-label">Journée</div>
           <div class="fullday-name">${esc(fdItem.client)}</div>
           ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
-          ${fdItem.note?`<div class="fullday-note">${esc(fdItem.note)}</div>`:''}
+          ${fdItem.note?`<div class="fullday-note">${esc(fdItem.note)}</div><div class="fullday-tap">📝 Appuyer pour voir la note</div>`:''}
           <span class="fullday-hours">${fdSlots.length*2}h</span>
         </div>`;
         // Créneaux normaux hors journée entière
@@ -292,11 +298,11 @@ function render(){
           const aff2=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
           h+=`<div class="slot-row">
             <div class="slot-time">${SLOT_LABELS[c.slot||0]}</div>
-            <div class="slot-content"><div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}">
+            <div class="slot-content"><div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}" onclick="this.classList.toggle('expanded')">
               ${updatedBadge(c)}
               <div class="ch-mobile-name">${esc(c.client)}</div>
               ${aff2?`<div class="ch-mobile-aff">${esc(aff2.name)}</div>`:''}
-              ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div>`:''}
+              ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
               <div class="ch-mobile-status">${st2.label}</div>
             </div></div>
           </div>`;
@@ -313,11 +319,11 @@ function render(){
             si.forEach(c=>{
               const st=getStatut(c.statut);
               const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
-              h+=`<div class="ch-mobile" style="background:${st.bg};color:${st.tx}">
+              h+=`<div class="ch-mobile" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
                 ${updatedBadge(c)}
                 <div class="ch-mobile-name">${esc(c.client)}</div>
                 ${aff?`<div class="ch-mobile-aff">${esc(aff.name)}</div>`:''}
-                ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div>`:''}
+                ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
                 <div class="ch-mobile-status">${st.label}</div>
               </div>`;
             });
