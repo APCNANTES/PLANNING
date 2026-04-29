@@ -1,3 +1,6 @@
+Voici le code complet — sélectionnez tout avec Ctrl+A puis copiez :
+
+html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -143,7 +146,7 @@ const DAY_SHORT    = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
 
 /* ── ÉTAT ── */
 let state = {chantiers:{}, resources:{}, affaires:{}};
-let currentDate = ''; // initialisé après les helpers
+let currentDate = '';
 
 /* ── HELPERS ── */
 function fmtD(d){return d.toISOString().slice(0,10);}
@@ -152,13 +155,11 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 function getStatut(id){return STATUTS[id]||STATUTS.confirmed;}
 function chantierHours(c){if(!c.fullday)return 2;const s=c.slots&&c.slots.length?c.slots:[0,1,2,3];return s.length*2;}
 
-// Navigation basée sur les strings YYYY-MM-DD pour éviter tout problème timezone
-// Navigation 100% arithmétique sur YYYY-MM-DD, zéro objet Date
 function dsToParts(ds){return[parseInt(ds.slice(0,4)),parseInt(ds.slice(5,7))-1,parseInt(ds.slice(8,10))];}
 function dsGetDate(ds){return parseInt(ds.slice(8,10));}
 function dsAddDays(ds,n){
   const [y,m,d]=dsToParts(ds);
-  const dt=new Date(y,m,d); // minuit LOCAL — pas de string, pas de T12:00:00
+  const dt=new Date(y,m,d);
   dt.setDate(dt.getDate()+n);
   return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
 }
@@ -225,12 +226,10 @@ function render(){
   const ferieName = getFerie(ds);
   const isWE = dsDayOfWeek(currentDate)===0 || dsDayOfWeek(currentDate)===6;
 
-  // Header
   document.getElementById('day-name').textContent = DAY_FULL[dsDayOfWeek(currentDate)];
   const [_y,_m,_d]=currentDate.split('-').map(Number);
   document.getElementById('day-date').textContent = new Date(_y,_m-1,_d).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
 
-  // Week strip
   const weekStart = dsWeekStart(currentDate);
   let wh = '';
   for(let i=0;i<7;i++){
@@ -247,13 +246,9 @@ function render(){
   }
   document.getElementById('week-strip').innerHTML = wh;
   document.querySelectorAll('.week-day').forEach(el=>{
-    el.addEventListener('click',()=>{
-      currentDate=el.dataset.ds;
-      render();
-    });
+    el.addEventListener('click',()=>{ currentDate=el.dataset.ds; render(); });
   });
 
-  // Contenu
   const resources = Object.entries(state.resources);
   const allItems = Object.values(state.chantiers).filter(c=>c.date===ds);
   let h = '';
@@ -269,7 +264,7 @@ function render(){
     let hasAnything = false;
     resources.forEach(([rid,techName])=>{
       const techItems = allItems.filter(c=>c.tech===rid);
-      if(!techItems.length)return; // technicien libre ce jour
+      if(!techItems.length)return;
       hasAnything = true;
       const fdItem = techItems.find(c=>c.fullday);
       const totalH = techItems.reduce((s,c)=>s+chantierHours(c),0);
@@ -284,16 +279,15 @@ function render(){
         const st = getStatut(fdItem.statut);
         const aff = fdItem.affId&&state.affaires[fdItem.affId]?state.affaires[fdItem.affId]:null;
         const fdSlots = fdItem.slots&&fdItem.slots.length?fdItem.slots:[0,1,2,3];
-        h += `<div class="fullday-block" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
-          ${updatedBadge(fdItem)}
-          <div class="fullday-label">Journée</div>
-          <div class="fullday-name">${esc(fdItem.client)}</div>
-          ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
-          ${fdItem.note?`<div class="fullday-note">${esc(fdItem.note)}</div><div class="fullday-tap">📝 Appuyer pour voir la note</div>`:''}
-          <span class="fullday-hours">${fdSlots.length*2}h</span>
-        </div>`;
-        // Créneaux normaux hors journée entière
-        techItems.filter(c=>!c.fullday).forEach(c=>{
+
+        // ── CORRECTIF : tri des créneaux avant/après la journée ──
+        const fdFirstSlot = fdSlots[0];
+        const slotItems = techItems.filter(c=>!c.fullday).sort((a,b)=>(a.slot||0)-(b.slot||0));
+        const beforeFd = slotItems.filter(c=>(c.slot||0) < fdFirstSlot);
+        const afterFd  = slotItems.filter(c=>(c.slot||0) >= fdFirstSlot);
+
+        // Créneaux AVANT la journée
+        beforeFd.forEach(c=>{
           const st2=getStatut(c.statut);
           const aff2=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
           h+=`<div class="slot-row">
@@ -307,6 +301,33 @@ function render(){
             </div></div>
           </div>`;
         });
+
+        // Bloc journée entière
+        h += `<div class="fullday-block" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
+          ${updatedBadge(fdItem)}
+          <div class="fullday-label">Journée</div>
+          <div class="fullday-name">${esc(fdItem.client)}</div>
+          ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
+          ${fdItem.note?`<div class="fullday-note">${esc(fdItem.note)}</div><div class="fullday-tap">📝 Appuyer pour voir la note</div>`:''}
+          <span class="fullday-hours">${fdSlots.length*2}h</span>
+        </div>`;
+
+        // Créneaux APRÈS la journée
+        afterFd.forEach(c=>{
+          const st2=getStatut(c.statut);
+          const aff2=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+          h+=`<div class="slot-row">
+            <div class="slot-time">${SLOT_LABELS[c.slot||0]}</div>
+            <div class="slot-content"><div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}" onclick="this.classList.toggle('expanded')">
+              ${updatedBadge(c)}
+              <div class="ch-mobile-name">${esc(c.client)}</div>
+              ${aff2?`<div class="ch-mobile-aff">${esc(aff2.name)}</div>`:''}
+              ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
+              <div class="ch-mobile-status">${st2.label}</div>
+            </div></div>
+          </div>`;
+        });
+
       } else {
         for(let s=0;s<4;s++){
           const si = techItems.filter(c=>c.slot===s&&!c.fullday);
@@ -338,7 +359,6 @@ function render(){
     }
   }
 
-  // Légende statuts
   h += `<div class="legend">
     <div class="legend-title">Statuts</div>
     <div class="legend-grid">
@@ -349,19 +369,13 @@ function render(){
   document.getElementById('content').innerHTML = h;
 }
 
-/* ── BOUTONS (attachés aux éléments HTML fixes, pas innerHTML) ── */
-document.getElementById('btn-prev').addEventListener('click',()=>{
-  currentDate=dsAddDays(currentDate,-1); render();
-});
-document.getElementById('btn-next').addEventListener('click',()=>{
-  currentDate=dsAddDays(currentDate,1); render();
-});
-document.getElementById('btn-today').addEventListener('click',()=>{
-  currentDate=todayDs(); render();
-});
+/* ── BOUTONS ── */
+document.getElementById('btn-prev').addEventListener('click',()=>{ currentDate=dsAddDays(currentDate,-1); render(); });
+document.getElementById('btn-next').addEventListener('click',()=>{ currentDate=dsAddDays(currentDate,1); render(); });
+document.getElementById('btn-today').addEventListener('click',()=>{ currentDate=todayDs(); render(); });
 
 /* ── FIREBASE ── */
-currentDate = todayDs(); // initialisation ici après que todayDs soit définie
+currentDate = todayDs();
 onValue(dbRef,(snapshot)=>{
   const data=snapshot.val();
   if(data)state={chantiers:{},resources:{},affaires:{},...data};
