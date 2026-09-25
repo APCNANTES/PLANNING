@@ -263,7 +263,6 @@ function render(){
       const techItems = allItems.filter(c=>c.tech===rid);
       if(!techItems.length)return;
       hasAnything = true;
-      const fdItem = techItems.find(c=>c.fullday);
       const totalH = techItems.reduce((s,c)=>s+chantierHours(c),0);
 
       h += `<div class="tech-card">
@@ -272,81 +271,51 @@ function render(){
           <span class="tech-hours">${totalH}h</span>
         </div>`;
 
-      if(fdItem){
-        const st = getStatut(fdItem.statut);
-        const aff = fdItem.affId&&state.affaires[fdItem.affId]?state.affaires[fdItem.affId]:null;
-        const fdSlots = fdItem.slots&&fdItem.slots.length?fdItem.slots:[0,1,2,3];
+      // ── CORRECTIF : affichage de TOUS les chantiers (simples ou multi-créneaux) ──
+      const entries = techItems.map(c=>{
+        const sl = c.fullday
+          ? (c.slots&&c.slots.length ? [...c.slots].map(Number).sort((a,b)=>a-b) : [0,1,2,3])
+          : [c.slot||0];
+        return {c, sl, first: sl[0], last: sl[sl.length-1]};
+      }).sort((a,b)=>a.first-b.first || a.last-b.last);
 
-        // ── CORRECTIF : tri des créneaux avant/après la journée ──
-        const fdFirstSlot = fdSlots[0];
-        const slotItems = techItems.filter(c=>!c.fullday).sort((a,b)=>(a.slot||0)-(b.slot||0));
-        const beforeFd = slotItems.filter(c=>(c.slot||0) < fdFirstSlot);
-        const afterFd  = slotItems.filter(c=>(c.slot||0) >= fdFirstSlot);
+      const covered = new Set();
+      entries.forEach(e=>e.sl.forEach(s=>covered.add(s)));
 
-        // Créneaux AVANT la journée
-        beforeFd.forEach(c=>{
-          const st2=getStatut(c.statut);
-          const aff2=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
-          h+=`<div class="slot-row">
-            <div class="slot-time">${SLOT_LABELS[c.slot||0]}</div>
-            <div class="slot-content"><div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}" onclick="this.classList.toggle('expanded')">
-              ${updatedBadge(c)}
-              <div class="ch-mobile-name">${esc(c.client)}</div>
-              ${aff2?`<div class="ch-mobile-aff">${esc(aff2.name)}</div>`:''}
-              ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
-              <div class="ch-mobile-status">${st2.label}</div>
-            </div></div>
+      const cardHtml = (e)=>{
+        const c=e.c, st=getStatut(c.statut);
+        const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
+        if(c.fullday && e.sl.length===4){
+          return `<div class="fullday-block" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
+            ${updatedBadge(c)}
+            <div class="fullday-label">Journée</div>
+            <div class="fullday-name">${esc(c.client)}</div>
+            ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
+            ${c.note?`<div class="fullday-note">${esc(c.note)}</div><div class="fullday-tap">📝 Appuyer pour voir la note</div>`:''}
+            <span class="fullday-hours">8h</span>
           </div>`;
-        });
-
-        // Bloc journée entière
-        h += `<div class="fullday-block" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
-          ${updatedBadge(fdItem)}
-          <div class="fullday-label">Journée</div>
-          <div class="fullday-name">${esc(fdItem.client)}</div>
-          ${aff?`<div class="fullday-aff">${esc(aff.name)}</div>`:''}
-          ${fdItem.note?`<div class="fullday-note">${esc(fdItem.note)}</div><div class="fullday-tap">📝 Appuyer pour voir la note</div>`:''}
-          <span class="fullday-hours">${fdSlots.length*2}h</span>
+        }
+        const t1=SLOT_LABELS[e.first].split('-')[0], t2=SLOT_LABELS[e.last].split('-')[1];
+        return `<div class="slot-row">
+          <div class="slot-time">${t1}-${t2}</div>
+          <div class="slot-content"><div class="ch-mobile" style="background:${st.bg};color:${st.tx};position:relative" onclick="this.classList.toggle('expanded')">
+            ${updatedBadge(c)}
+            ${e.sl.length>1?`<span class="fullday-hours">${e.sl.length*2}h</span>`:''}
+            <div class="ch-mobile-name">${esc(c.client)}</div>
+            ${aff?`<div class="ch-mobile-aff">${esc(aff.name)}</div>`:''}
+            ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
+            <div class="ch-mobile-status">${st.label}</div>
+          </div></div>
         </div>`;
+      };
 
-        // Créneaux APRÈS la journée
-        afterFd.forEach(c=>{
-          const st2=getStatut(c.statut);
-          const aff2=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
-          h+=`<div class="slot-row">
-            <div class="slot-time">${SLOT_LABELS[c.slot||0]}</div>
-            <div class="slot-content"><div class="ch-mobile" style="background:${st2.bg};color:${st2.tx}" onclick="this.classList.toggle('expanded')">
-              ${updatedBadge(c)}
-              <div class="ch-mobile-name">${esc(c.client)}</div>
-              ${aff2?`<div class="ch-mobile-aff">${esc(aff2.name)}</div>`:''}
-              ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
-              <div class="ch-mobile-status">${st2.label}</div>
-            </div></div>
-          </div>`;
-        });
-
-      } else {
-        for(let s=0;s<4;s++){
-          const si = techItems.filter(c=>c.slot===s&&!c.fullday);
+      for(let s=0;s<4;s++){
+        entries.filter(e=>e.first===s).forEach(e=>{ h += cardHtml(e); });
+        if(!covered.has(s)){
           h += `<div class="slot-row">
             <div class="slot-time">${SLOT_LABELS[s]}</div>
-            <div class="slot-content">`;
-          if(!si.length){
-            h += `<span class="slot-empty">Libre</span>`;
-          } else {
-            si.forEach(c=>{
-              const st=getStatut(c.statut);
-              const aff=c.affId&&state.affaires[c.affId]?state.affaires[c.affId]:null;
-              h+=`<div class="ch-mobile" style="background:${st.bg};color:${st.tx}" onclick="this.classList.toggle('expanded')">
-                ${updatedBadge(c)}
-                <div class="ch-mobile-name">${esc(c.client)}</div>
-                ${aff?`<div class="ch-mobile-aff">${esc(aff.name)}</div>`:''}
-                ${c.note?`<div class="ch-mobile-note">${esc(c.note)}</div><div class="ch-mobile-tap">📝 Appuyer pour voir la note</div>`:''}
-                <div class="ch-mobile-status">${st.label}</div>
-              </div>`;
-            });
-          }
-          h += `</div></div>`;
+            <div class="slot-content"><span class="slot-empty">Libre</span></div>
+          </div>`;
         }
       }
       h += `</div>`;
